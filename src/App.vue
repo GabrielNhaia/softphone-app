@@ -6,20 +6,8 @@
         <p class="lead">Softphone em Vue.js com WebRTC e SIP</p>
       </header>
       
-      <!-- Comentando a verificação de API Ruby para mostrar diretamente o softphone -->
-      <!-- <div v-if="!rubyApiService">
-        <ruby-login @auth-success="handleRubyAuth" />
-      </div>
-      
-      <!-- Mostrando diretamente o softphone sem necessidade de autenticação -->
       <div>
         <softphone />
-        
-        <!-- <div class="text-center mt-4">
-          <button class="btn btn-sm btn-outline-secondary" @click="logout">
-            <i class="fas fa-sign-out-alt"></i> Sair
-          </button>
-        </div> -->
       </div>
       
       <footer class="mt-5 text-center text-muted">
@@ -30,38 +18,20 @@
 </template>
 
 <script>
-// Importando apenas o componente Softphone
-// import RubyLogin from './components/softphone/RubyLogin.vue';
 import Softphone from './components/Softphone.vue';
 
 export default {
   name: 'App',
   components: {
-    // RubyLogin,
     Softphone
-  },
-  data() {
-    return {
-      // Não precisamos mais dessa propriedade para o teste
-      // rubyApiService: null
-    };
-  },
-  /* Comentando os métodos relacionados à API Ruby
-  methods: {
-    handleRubyAuth(apiService) {
-      this.rubyApiService = apiService;
-    },
-    
-    logout() {
-      localStorage.removeItem('rubyApiToken');
-      this.rubyApiService = null;
-    }
   }
-  */
 }
 </script>
 
 <style>
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -69,7 +39,4 @@ export default {
   margin-top: 20px;
   margin-bottom: 40px;
 }
-
-@import 'bootstrap/dist/css/bootstrap.min.css';
-@import '@fortawesome/fontawesome-free/css/all.min.css';
 </style>

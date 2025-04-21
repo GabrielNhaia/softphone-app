@@ -13,13 +13,11 @@ class SipService extends EventEmitter {
   }
 
   setupAudioElement() {
-    // Criar elemento de áudio para reproduzir áudio recebido
     this.audioElement = document.createElement('audio');
     this.audioElement.autoplay = true;
     document.body.appendChild(this.audioElement);
   }
 
-  // Iniciar a UA e registrar no servidor SIP
   connect(config) {
     return new Promise((resolve, reject) => {
       if (this.ua) {
@@ -28,10 +26,8 @@ class SipService extends EventEmitter {
 
       this.config = config;
 
-      // Criar socket WebSocket
       const socket = new JsSIP.WebSocketInterface(config.websocket);
 
-      // Configurar a UA
       const options = {
         sockets: [socket],
         uri: `sip:${config.username}@${config.domain}`,
@@ -45,7 +41,6 @@ class SipService extends EventEmitter {
       try {
         this.ua = new JsSIP.UA(options);
 
-        // Configurar eventos
         this.ua.on('connecting', () => {
           this.emit('connecting');
         });
@@ -76,11 +71,9 @@ class SipService extends EventEmitter {
           reject(data);
         });
 
-        // Lidar com chamadas recebidas
         this.ua.on('newRTCSession', (data) => {
           const session = data.session;
 
-          // Se já temos uma sessão ativa, rejeitar novas chamadas
           if (this.session) {
             if (data.originator === 'remote') {
               session.terminate();
@@ -90,14 +83,11 @@ class SipService extends EventEmitter {
 
           this.session = session;
 
-          // Configurar handlers de eventos da sessão
           this._setupSessionEvents(session);
 
-          // Se a chamada é recebida
           if (data.originator === 'remote') {
             const remoteNumber = session.remote_identity.uri.user;
 
-            // Emitir evento para chamada recebida
             this.emit('incomingCall', {
               remoteNumber,
               session
@@ -105,7 +95,6 @@ class SipService extends EventEmitter {
           }
         });
 
-        // Iniciar a UA
         this.ua.start();
 
       } catch (error) {
@@ -115,7 +104,6 @@ class SipService extends EventEmitter {
     });
   }
 
-  // Configurar eventos para a sessão (chamada)
   _setupSessionEvents(session) {
     session.on('progress', () => {
       this.emit('callStatus', { code: 'progress', description: 'Chamando...' });
@@ -144,29 +132,26 @@ class SipService extends EventEmitter {
       this.session = null;
     });
 
-    // Ouvinte para transferência
     session.on('refer', (data) => {
       this.emit('callStatus', { code: 'refer', description: 'Transferindo chamada...' });
     });
   }
 
-  // Configurar stream de áudio remoto
   _setupRemoteStream(session) {
     const remoteStream = session.connection.getRemoteStreams()[0];
     
     if (remoteStream) {
-      // Conectar stream ao elemento de áudio
       if ('srcObject' in this.audioElement) {
         this.audioElement.srcObject = remoteStream;
       } else {
-        // Fallback para versões mais antigas de navegadores
         this.audioElement.src = window.URL.createObjectURL(remoteStream);
       }
     }
   }
 
-  // Fazer uma chamada
   call(number) {
+    console.log('Chamando número:', number);
+
     if (!this.ua || !this.registered) {
       throw new Error('Não registrado no servidor SIP');
     }
@@ -192,6 +177,8 @@ class SipService extends EventEmitter {
 
   // Atender uma chamada recebida
   answer() {
+    console.log('Atendendo chamada');
+
     if (!this.session) {
       throw new Error('Nenhuma chamada para atender');
     }
@@ -210,6 +197,8 @@ class SipService extends EventEmitter {
 
   // Finalizar a chamada atual
   hangup() {
+    console.log('Desligando chamada');
+
     if (this.session) {
       try {
         this.session.terminate();
@@ -222,6 +211,8 @@ class SipService extends EventEmitter {
 
   // Ativar/Desativar o mudo
   toggleMute(mute) {
+    console.log('Alterando estado de mudo:', mute);
+
     if (!this.session) return;
 
     try {
@@ -238,6 +229,8 @@ class SipService extends EventEmitter {
 
   // Enviar DTMF
   sendDTMF(tone) {
+    console.log('Enviando tom DTMF:', tone);
+
     if (!this.session || !this.session.isEstablished()) return;
 
     try {
@@ -249,6 +242,8 @@ class SipService extends EventEmitter {
 
   // Transferir chamada
   transfer(target) {
+    console.log('Transferindo chamada para:', target);
+
     if (!this.session || !this.session.isEstablished()) {
       throw new Error('Nenhuma chamada ativa para transferir');
     }
@@ -264,6 +259,9 @@ class SipService extends EventEmitter {
 
   // Desconectar e limpar
   disconnect() {
+    console.log('Desconectando do servidor SIP');
+    this.registered = false;
+
     if (this.session) {
       try {
         this.session.terminate();
@@ -293,6 +291,35 @@ class SipService extends EventEmitter {
   // Verificar se há uma chamada em andamento
   hasActiveCall() {
     return !!this.session;
+  }
+
+  // Registrar handlers de eventos personalizados
+  registerEventHandlers(handlers) {
+    if (handlers.onRegistered) {
+      this.on('registered', handlers.onRegistered);
+    }
+    
+    if (handlers.onRegistrationFailed) {
+      this.on('registrationFailed', handlers.onRegistrationFailed);
+    }
+    
+    if (handlers.onCallReceived) {
+      this.on('incomingCall', handlers.onCallReceived);
+    }
+    
+    if (handlers.onCallEnded) {
+      this.on('ended', handlers.onCallEnded);
+    }
+    
+    if (handlers.onCallEstablished) {
+      this.on('callEstablished', handlers.onCallEstablished);
+      // Adicionamos um listener para o evento callStatus também
+      this.on('callStatus', (status) => {
+        if (status.code === 'confirmed') {
+          handlers.onCallEstablished();
+        }
+      });
+    }
   }
 }
 

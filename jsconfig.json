@@ -15,5 +15,11 @@
       "dom.iterable",
       "scripthost"
     ]
-  }
+  },
+  "exclude": [
+    "src/components/softphone/SipConfig (cópia).vue",
+    "src/components/softphone/RubyLogin.vue",
+    "src/components/softphone/PhoneInterface (cópia).vue",
+
+  ]
 }

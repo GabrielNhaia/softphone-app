@@ -44,7 +44,6 @@ export default {
   created() {
     this.sipService = new SipService();
     
-    // Verificar se há configurações salvas e conectar automaticamente
     const savedConfig = localStorage.getItem('sipConfig');
     if (savedConfig) {
       try {
@@ -60,7 +59,6 @@ export default {
   methods: {
     handleConfigSaved(config) {
       this.sipConfig = config;
-      // Salvar no localStorage
       localStorage.setItem('sipConfig', JSON.stringify(config));
     },
     
@@ -85,8 +83,8 @@ export default {
           }
         });
         
-        const result = await this.sipService.connect(config);
-        this.isConnected = result;
+        await this.sipService.connect(config);
+        this.isConnected = true;
       } catch (error) {
         console.error('Erro ao conectar:', error);
         alert('Erro ao conectar ao servidor SIP.');

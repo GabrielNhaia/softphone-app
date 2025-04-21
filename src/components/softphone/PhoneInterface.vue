@@ -1,4 +1,3 @@
-// src/components/softphone/PhoneInterface.vue
 <template>
   <div class="phone-interface">
     <div class="card">
@@ -10,7 +9,6 @@
       </div>
       
       <div class="card-body">
-        <!-- Display número -->
         <div class="phone-display mb-3">
           <input 
             type="text" 
@@ -21,7 +19,6 @@
           >
         </div>
         
-        <!-- Teclado numérico -->
         <div class="dialpad mb-4">
           <div class="row g-2 mb-2" v-for="row in dialpadRows" :key="row.join('')">
             <div class="col" v-for="digit in row" :key="digit">
@@ -47,7 +44,6 @@
           </div>
         </div>
         
-        <!-- Controles de chamada -->
         <div class="call-controls">
           <div class="row g-3">
             <div class="col">
@@ -87,7 +83,7 @@
             <div class="col">
               <button 
                 class="btn btn-warning w-100" 
-                @click="showTransferDialog"
+                @click="openTransferModal"
               >
                 <i class="fas fa-exchange-alt"></i> Transferir
               </button>
@@ -104,10 +100,32 @@
           </div>
         </div>
         
-        <!-- Áudio elementos -->
         <audio ref="remoteAudio" autoplay></audio>
       </div>
     </div>
+
+    <div class="modal fade" :class="{'show': showTransferModal}" v-if="showTransferModal" tabindex="-1" role="dialog" aria-labelledby="transferModalLabel" :style="{'display': showTransferModal ? 'block' : 'none'}" aria-modal="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="transferModalLabel">Transferir Chamada</h5>
+            <button type="button" class="btn-close" @click="closeTransferModal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="transferNumber">Número para transferência:</label>
+              <input type="text" class="form-control" id="transferNumber" v-model="transferNumber" placeholder="Digite o número..." @keyup.enter="confirmTransfer">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeTransferModal">Cancelar</button>
+            <button type="button" class="btn btn-primary" @click="confirmTransfer">Transferir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop fade show" v-if="showTransferModal"></div>
   </div>
 </template>
 
@@ -129,7 +147,9 @@ export default {
         [1, 2, 3],
         [4, 5, 6],
         [7, 8, 9]
-      ]
+      ],
+      showTransferModal: false,
+      transferNumber: ''
     };
   },
   computed: {
@@ -149,8 +169,6 @@ export default {
   mounted() {
     if (this.sipService) {
       this.registerSipEvents();
-      
-      // Configurar listener para stream remoto
       window.addEventListener('remoteStreamAvailable', this.handleRemoteStream);
     }
   },
@@ -159,20 +177,26 @@ export default {
   },
   methods: {
     registerSipEvents() {
-      this.sipService.registerEventHandlers({
-        onCallReceived: (session) => {
-          this.incomingCall = true;
-          this.caller = session.remote_identity.uri.user;
-        },
-        onCallEnded: () => {
+      this.sipService.on('incomingCall', (data) => {
+        this.incomingCall = true;
+        this.caller = data.remoteNumber || 'Desconhecido';
+      });
+
+      this.sipService.on('callStatus', (status) => {
+        if (status.code === 'confirmed' || status === 'confirmed') {
+          this.callActive = true;
+          this.incomingCall = false;
+        } else if (status.code === 'ended' || status === 'ended') {
           this.callActive = false;
           this.incomingCall = false;
           this.isMuted = false;
-        },
-        onCallEstablished: () => {
-          this.callActive = true;
-          this.incomingCall = false;
         }
+      });
+
+      this.sipService.on('ended', () => {
+        this.callActive = false;
+        this.incomingCall = false;
+        this.isMuted = false;
       });
     },
     
@@ -217,24 +241,46 @@ export default {
     },
     
     toggleMute() {
-      if (this.callActive && this.sipService.session) {
-        const session = this.sipService.session;
-        
-        if (this.isMuted) {
-          session.unmute();
-        } else {
-          session.mute();
-        }
-        
+      if (this.callActive) {
+        this.sipService.toggleMute(!this.isMuted);
         this.isMuted = !this.isMuted;
       }
     },
     
-    showTransferDialog() {
-      const transferNumber = prompt('Digite o número para transferência:');
-      if (transferNumber) {
-        this.transferCall(transferNumber);
+    openTransferModal() {
+      if (this.callActive) {
+        this.showTransferModal = true;
+        this.transferNumber = '';
+
+        document.addEventListener('keydown', this.handleEscKey);
+        
+        setTimeout(() => {
+          document.getElementById('transferNumber')?.focus();
+        }, 100);
       }
+    },
+    
+    closeTransferModal() {
+      this.showTransferModal = false;
+      this.transferNumber = '';
+      document.removeEventListener('keydown', this.handleEscKey);
+    },
+    
+    handleEscKey(event) {
+      if (event.key === 'Escape' && this.showTransferModal) {
+        this.closeTransferModal();
+      }
+    },
+    
+    confirmTransfer() {
+      if (this.transferNumber) {
+        this.transferCall(this.transferNumber);
+        this.closeTransferModal();
+      }
+    },
+    
+    showTransferDialog() {
+      this.openTransferModal();
     },
     
     transferCall(destination) {
@@ -264,5 +310,102 @@ export default {
 .phone-display input {
   font-size: 1.5rem;
   letter-spacing: 1px;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1050;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  outline: 0;
+}
+
+.modal-dialog {
+  position: relative;
+  width: auto;
+  margin: 1.75rem auto;
+  max-width: 500px;
+}
+
+.modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: #fff;
+  border-radius: .3rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,.5);
+  outline: 0;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+  border-top-left-radius: calc(.3rem - 1px);
+  border-top-right-radius: calc(.3rem - 1px);
+}
+
+.modal-body {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 1rem;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.75rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1040;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
+  opacity: 0.5;
+}
+
+.btn-close {
+  background: transparent;
+  border: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #000;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-close:hover {
+  opacity: 1;
+}
+
+/* Animação para a modal */
+.modal.fade .modal-dialog {
+  transition: transform .3s ease-out;
+}
+
+.modal.show .modal-dialog {
+  transform: none;
+}
+
+/* Ajuste para smartphones */
+@media (max-width: 576px) {
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
 }
 </style>
